@@ -78,8 +78,14 @@ async function getFirstValidHsCode(keywords) {
 // ------------------------
 // 统一业务逻辑（Node/Workers通用）
 // ------------------------
-async function handleRequest(request) {
+async function handleRequest(request, env = {}) {
     const url = new URL(request.url);
+    
+    // In Cloudflare Workers, set a secret named SECRET_KEY in your worker's settings.
+    // In Node.js, set an environment variable: export SECRET_KEY="your_secret"
+    // The || operator provides a default for local testing if the env var is not set.
+    const SECRET_KEY = (typeof process !== 'undefined' ? process.env.SECRET_KEY : env.SECRET_KEY) || 'ocean-zhc';
+
 
     // 首页
     if (request.method === 'GET' && url.pathname === '/') {
@@ -87,21 +93,37 @@ async function handleRequest(request) {
             status: 200,
             headers: { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' },
             body: `<h1>HS Code Lookup API</h1>
-                   <p>POST /api/hs-code with JSON {"keyword":"xxx"}</p>`
+                   <p>POST /api/hs-code with JSON {"keyword":"xxx"} and Authorization header.</p>`
         };
     }
 
     // API
     if (request.method === 'POST' && url.pathname === '/api/hs-code') {
-        let keywords;
-        if (request.json) {
-            const data = await request.json();
-            keywords = data.keyword;
-        } else {
-            const text = await request.text();
-            const params = new URLSearchParams(text);
-            keywords = params.get('keyword');
+        // --- START: 鉴权逻辑 ---
+        const authHeader = request.headers.get('Authorization');
+        const expectedToken = `Bearer ${SECRET_KEY}`;
+
+        if (!authHeader || authHeader !== expectedToken) {
+            return {
+                status: 401,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ status: "error", message: "Unauthorized: Missing or invalid token." })
+            };
         }
+        // --- END: 鉴权逻辑 ---
+
+        let keywords;
+        // The Fetch API's `request.json()` can only be called once.
+        // We'll get the body text and parse it manually to avoid issues.
+        const bodyText = await request.text();
+        try {
+            const data = JSON.parse(bodyText);
+            keywords = data.keyword;
+        } catch {
+             const params = new URLSearchParams(bodyText);
+             keywords = params.get('keyword');
+        }
+
 
         if (!keywords) {
             return {
@@ -139,9 +161,19 @@ async function handleRequest(request) {
 // ------------------------
 // Cloudflare Workers
 // ------------------------
+// For modern module workers, the structure would be:
+// export default {
+//   async fetch(request, env, ctx) {
+//     const res = await handleRequest(request, env);
+//     return new Response(res.body, { status: res.status, headers: res.headers });
+//   },
+// };
+// The older service-worker syntax below also works. Secrets are exposed as global variables.
 if (typeof addEventListener !== "undefined") {
     addEventListener('fetch', event => {
         event.respondWith((async () => {
+            // In the older Worker format, secrets are available as global variables.
+            // handleRequest will pick it up automatically if you set a secret called `SECRET_KEY`.
             const res = await handleRequest(event.request);
             return new Response(res.body, { status: res.status, headers: res.headers });
         })());
