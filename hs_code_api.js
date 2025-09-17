@@ -147,30 +147,3 @@ if (typeof addEventListener !== "undefined") {
         })());
     });
 }
-
-// ------------------------
-// Node.js本地测试
-// ------------------------
-if (typeof require !== "undefined" && require.main === module) {
-    const http = require('http');
-
-    const server = http.createServer(async (req, res) => {
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', async () => {
-            const fakeRequest = {
-                method: req.method,
-                url: `http://localhost:5001${req.url}`,
-                text: async () => body,
-                json: async () => { try { return JSON.parse(body); } catch { return {}; } }
-            };
-
-            const result = await handleRequest(fakeRequest);
-
-            res.writeHead(result.status, result.headers);
-            res.end(result.body);
-        });
-    });
-
-    server.listen(5001, () => console.log("Server running at http://localhost:5001"));
-}
