@@ -37,7 +37,9 @@ python hs_code_api.py
 ## 1. 查询 HS Code
 
 **请求方式：** POST
+
 **接口地址：** /api/hs-code
+
 **参数：**
 
 {"keyword": "二氯异氰脲酸钠粉,戊二醛癸甲溴铵溶液,过硫酸氢钾复合物粉"}
