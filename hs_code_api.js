@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const querystring = require('querystring');
+//const querystring = require('querystring');
 
 const app = express();
 
@@ -18,7 +18,8 @@ app.use((req, res, next) => {
 });
 
 async function getFirstValidHsCode(keywords) {
-    const encodedKeywords = querystring.escape(keywords);
+    //const encodedKeywords = querystring.escape(keywords);
+    const encodedKeywords = encodeURIComponent(keywords);
     const url = `https://www.hsbianma.com/search?keywords=${encodedKeywords}`;
     
     const headers = {
